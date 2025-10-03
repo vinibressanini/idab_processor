@@ -1,0 +1,24 @@
+{
+    "Oven": {
+        "ip": "127.0.0.1",
+        "metadata": {
+            "plant": "Blumenau Brewery",
+            "area": "Brewhouse Area -> Milling & Mashing Line",
+            "equipment": "Mash Tun"
+        },
+        "tags": [
+            {
+                "name": "Temperature",
+                "type": "float",
+                "plc_address": "100"
+            }
+        ],
+        "event_rules": [
+            {
+                "name": "HighTemperatureAlert",
+                "expression": "Temperature > 80",
+                "onchange" : false
+            }
+        ]
+    }
+}
