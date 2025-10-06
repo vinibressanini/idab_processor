@@ -1,23 +1,63 @@
 {
-    "Oven": {
+    "Enchedora": {
         "ip": "127.0.0.1",
         "metadata": {
-            "plant": "Blumenau Brewery",
-            "area": "Brewhouse Area -> Milling & Mashing Line",
-            "equipment": "Mash Tun"
+            "plant": "Blumenau",
+            "area": "Packaging Area -> Canning Line 1",
+            "equipment": "Enchedora"
         },
         "tags": [
             {
-                "name": "Temperature",
+                "name": "PressaoCO2",
                 "type": "float",
                 "plc_address": "100"
+            },
+            {
+                "name": "Status",
+                "type": "integer",
+                "plc_address": "101"
+            },
+            {
+                "name": "ContagemDeRejeitos",
+                "type": "integer",
+                "plc_address": "102"
             }
         ],
         "event_rules": [
             {
-                "name": "HighTemperatureAlert",
-                "expression": "Temperature > 80",
-                "onchange" : false
+                "name": "PressaoCO2Baixa",
+                "expression": "PressaoCO2 < 2.5"
+            }
+        ]
+    },
+    "Tanque de Fermentacao": {
+        "ip": "127.0.0.1",
+        "metadata": {
+            "plant": "Blumenau",
+            "area": "Cellar Area -> Fermentation Hall 1",
+            "equipment": "Tanque de Fermentacao"
+        },
+        "tags": [
+            {
+                "name": "Temperatura",
+                "type": "float",
+                "plc_address": "200"
+            },
+            {
+                "name": "Pressao",
+                "type": "float",
+                "plc_address": "201"
+            },
+            {
+                "name": "Status",
+                "type": "integer",
+                "plc_address": "203"
+            }
+        ],
+        "event_rules": [
+            {
+                "name": "TemperaturaForaDosLimites",
+                "expression": "Temperatura > 22.0 or Temperatura < 18.0"
             }
         ]
     }

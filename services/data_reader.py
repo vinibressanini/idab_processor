@@ -3,6 +3,7 @@ from queue import Queue
 import paho.mqtt.client as mqtt
 import random
 
+from decorator.metric_decorator import update_prometheus_on_read
 from utils.converter import Converter
 
 MQTT_BROKER = "localhost"
@@ -15,7 +16,7 @@ class CommunicationAdapter(ABC):
         pass
 
     @abstractmethod
-    def read(self, tags):
+    def read(self, equipment):
         pass
 
 class MqttAdapter(CommunicationAdapter):
@@ -38,11 +39,11 @@ class MqttAdapter(CommunicationAdapter):
     def _on_message_callback(self, client, userdata, msg):
         self._message_queue.put(msg)
         
-    def read(self, tags=None):
+    def read(self, equipment=None):
        
         plc_address_map = {
             tag['plc_address']: {'name' : tag['name'], 'type' : tag['type']}
-                  for tag in tags}
+                  for tag in equipment.tags}
         readings = {}
 
         while not self._message_queue.empty():
@@ -61,93 +62,79 @@ class MqttAdapter(CommunicationAdapter):
 
 class PLCDataReader(CommunicationAdapter):
 
+    def __init__(self): 
+        self.simulation_state = {}
+
     def connect(self):
         print("Connected To PLC (MOCKED DATA)")
 
-    def read(self, tags):
-
+    @update_prometheus_on_read
+    def read(self, equipment):
         readings = {}
+        eq_name = equipment.name
 
-        for tag in tags:
+        if eq_name not in self.simulation_state:
+            self.simulation_state[eq_name] = {}
 
-            reading = None
+        for tag in equipment.tags:
+            tag_name = tag['name']
+            
+            # Initialize state for new tags with sensible defaults
+            if tag_name not in self.simulation_state[eq_name]:
+                if "Temperatura" in tag_name:
+                    self.simulation_state[eq_name][tag_name] = 20.0
+                elif "Pressao" in tag_name:
+                    self.simulation_state[eq_name][tag_name] = 3.0
+                else:
+                    self.simulation_state[eq_name][tag_name] = 0
+
+            last_reading = self.simulation_state[eq_name][tag_name]
+            reading = last_reading # Default to last reading if not updated
 
             match (tag['plc_address']):
-            # --- Mash Tun MT-01 (Mashing Process) ---
-                case "100":  # Temperature
-                    # 98% chance of normal temp, 2% chance of a spike
-                    if random.random() < 0.1:
-                        reading = random.uniform(81, 85.0)  # Simulate a spike
-                    else:
-                        reading = random.uniform(65.0, 68.0)  # Normal mashing temp
+                # =============================================================
+                # --- Mash Tun MT-01 ---
+                # =============================================================
+                case "100":  # MashTunTemperatureSensor
+                    noise = random.uniform(-0.2, 0.2) if random.random() > 0.55 else random.uniform(-0.5, 0.5)
+                    reading = last_reading + noise
+
+                    if reading < 1.95: reading =1.95
+                    if reading > 3.25: reading = 3.25
 
                 case "101":  # WaterVolume
-                    reading = random.uniform(160, 200)
+                     reading = random.choice([1, 2, 3])
+                
+                case "102":  # AgitatorStatus (Discrete state)
+                    noise = random.randint(1, 3) if random.random() > 0.1 else 0
 
-                case "102":  # AgitatorStatus
-                    # Simulate agitator is on (1) most of the time, off (0) occasionally
-                    reading = 1 if random.random() < 0.9 else 0
+                    reading = last_reading + noise
 
-                case "103":  # CycleStep
-                    # Randomly reading = one of the possible mashing steps
-                    reading = random.choice([1, 2, 3])
+    
+                # =============================================================
+                # --- Fermentation Tank FV-101 ---
+                # =============================================================
+                case "200": # FermentationTemperature
 
-                # --- Fermentation Tank FV-101 (Fermenting Process) ---
-                case "200": # Fermentation Temperature
-                    reading = random.uniform(17.5, 25.5)
+                    noise = random.uniform(-0.4, 0.65) if random.random() > 0.4 else random.uniform(-1.25, 1.55)
 
-                case "201": # Tank Pressure (Bar)
-                    reading = random.uniform(1.0, 1.4)
-                    
-                case "202":  # SpecificGravity
-                    # reading = a random value within the typical fermentation range
-                    reading = random.uniform(1.012, 1.060)
+                    reading = last_reading + noise
+                    if reading < 17: reading = 17
+                    if reading > 26: reading = 26
 
-                case "203": # Fermentation Phase
-                    # Randomly choose between active fermentation (3) and conditioning (4)
-                    reading = random.choice([3, 4])
+                case "201": # TankPressure
+                    noise = random.uniform(-0.02, 0.02)
+                    reading = last_reading + noise
+                    if reading < 0.9: reading = 0.9
+                    if reading > 1.5: reading = 1.5
                     
-                case "204": # CoolingSystemStatus
-                    reading = 1 # Assume cooling is always active
 
-                # --- Packaging Process ---
-                case "300": # FillVolume (ml)
-                    # Simulate that the machine is sometimes idle (reading =s 0)
-                    reading = random.uniform(495, 505) if random.random() < 0.85 else 0
+                case "203": # FermentationPhase (Discrete state)
+                    reading = random.choice([1, 3])
+                    
 
-                case "301": # ConveyorBeltSpeed (m/s)
-                    reading = random.uniform(2.8, 3.2)
-                    
-                case "302":  # MachineState for Can Filler
-                    # reading = a random state, weighted to be 'Running' most often
-                    # States: 1=Idle, 2=Running, 3=Fault
-                    reading = random.choices([1, 2, 3], weights=[0.15, 0.80, 0.05], k=1)[0]
-                    
-                case "303":  # RejectCount
-                    # A random number of rejects at any given time
-                    reading = random.randint(0, 50)
-                    
-                case "304": # FilledCanWeight (grams)
-                    reading = random.uniform(472.5, 473.5)
-
-                # --- Utility/Lab Readings ---
-                case "400": # CO2 Level (Volumes)
-                    reading = random.uniform(3.0, 4.0)
-                    
-                case "401": # Lab Temperature
-                    # 98% chance of a normal temp, 2% chance of a low outlier
-                    reading = random.uniform(18, 25) if random.random() < 0.98 else 13.0
-                    
-                case "402": # Water pH Level
-                    reading = random.uniform(9.8, 10.2)
-                    
-                case "403": # TransferPumpState
-                    # States: 1=Off, 2=On
-                    reading = random.choice([1, 2])
-                    
-                case _:  # Default case for any other address
-                    reading = random.randint(0, 200)
-            
-            readings[tag['name']] = reading
+            # Update the state for the next cycle and prepare the readings
+            self.simulation_state[eq_name][tag_name] = reading
+            readings[tag_name] = round(reading, 3) if isinstance(reading, float) else reading
         
         return readings

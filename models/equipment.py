@@ -21,9 +21,7 @@ class Equipment():
 
             self.rules.append({
                 'name' : rule['name'],
-                'expression' : compiled_rule,
-                'onchange' : rule['onchange'],
-                'state' : None,
+                'expression' : compiled_rule
             })
 
     def update_values(self, new_values):
