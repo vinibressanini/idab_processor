@@ -1,14 +1,16 @@
+from datetime import datetime
 from threading import Event, Timer
 import threading
 import time
+
 from asteval import Interpreter
+from services.outbox import store_event
 
 from decorator.metric_decorator import update_event_counter
+
 from models.equipment import Equipment
 
-
-
-class EventGenerator():
+class EventGenerator():    
 
     def __init__(self, sender,  shutdown_event : Event):
         self.sender = sender
@@ -38,6 +40,7 @@ class EventGenerator():
                 if triggered and rule['state'] != triggered:
                     event = self._create_event_payload(rule, equipment)
                     events.append(event)
+                    store_event(event['event_name'], event['metadata'], event['timestamp'])
                     print(event)
 
                 rule['state'] = triggered
@@ -80,10 +83,8 @@ class EventGenerator():
 
         event = {
             "event_name": rule['name'],
-            "code" : equipment.code,
-            "routing_key" : rule['routing_key'] or "",
-            "timestamp": int(time.time()),
-            "metadata" : equipment.metadata
+            "timestamp": int(datetime.now().timestamp()),
+            "metadata" : metadata
         }
 
         if rule['output'] : event['data'] =  {rule['output'] : equipment.symtable.get(rule['output'])}

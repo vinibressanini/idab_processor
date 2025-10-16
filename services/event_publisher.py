@@ -99,7 +99,6 @@ class AzureEventPublisher(EventPublisher):
             if batch:
                 self.sender.send_messages(batch)
             
-            print(f"Successfully sent a batch of {len(events)} events to Azure.")
 
         except Exception as e:
             print(f"Error sending event batch to Azure: {e}")
@@ -107,6 +106,6 @@ class AzureEventPublisher(EventPublisher):
     def close(self):
         print("Closing Azure Service Bus sender...")
         self.sender.close()
-        self.service_bus_client.close()
+        self.client.close()
         print("Azure sender closed.")
 
