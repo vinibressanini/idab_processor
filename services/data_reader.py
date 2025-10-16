@@ -21,45 +21,77 @@ class CommunicationAdapter(ABC):
 
 class MqttAdapter(CommunicationAdapter):
     
-    def __init__(self):
+    def __init__(self, equipments):
         self._host = MQTT_BROKER
         self._port = MQTT_PORT
-        self._base_topic = MQTT_TOPIC
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._client.on_message = self._on_message_callback
-        self._message_queue = Queue()
+        self._message_queues = {}
+        self.plc_address_map = {}
 
-    def connect(self):
+        for equipment in equipments:
+            self._message_queues[equipment.name] = Queue()
+            for tag in equipment.tags:  
+                self.plc_address_map[tag['plc_address']] = {'name' : tag['name'], 'type' : tag['type']}
+                
+    def connect(self, equipments):
         print(f"Connecting MQTT client to {self._host}...")
         self._client.connect(self._host, self._port, 60)
-        self._client.subscribe(f"{self._base_topic}/#")
+        topics = []
+
+        for equipment in equipments:
+            topic_name = f"/{equipment.name}/#"
+            topics.append((topic_name, 0))
+
+        self._client.subscribe(topics)
         self._client.loop_start()
         print("MQTT client connected and listening.")
 
     def _on_message_callback(self, client, userdata, msg):
-        self._message_queue.put(msg)
+        
+        try:
+            equip_name = msg.topic.split('/')[1]
+        except IndexError:
+            print(f"Warning: Could not parse equipment name from topic: {msg.topic}")
+            return
+
+        print(equip_name)
+
+        if equip_name in self._message_queues:
+            self._message_queues[equip_name].put(msg)
+        else:
+            print(f"Warning: Received message for unknown equipment queue: {equip_name}")
+            print(self._message_queues)
+        
         
     def read(self, equipment=None):
-       
-        plc_address_map = {
-            tag['plc_address']: {'name' : tag['name'], 'type' : tag['type']}
-                  for tag in equipment.tags}
         readings = {}
 
-        while not self._message_queue.empty():
-            msg = self._message_queue.get()
-            
+        if not equipment:
+            return readings # Cannot read without knowing which equipment
+
+        # --- CHANGE 3: Read from the specific equipment's queue ---
+        equip_name = equipment.name
+        
+        # Get the correct queue for this equipment; return if not found.
+        target_queue = self._message_queues.get(equip_name)
+        if not target_queue:
+            return readings
+
+        # Drain only the messages from this equipment's queue
+        while not target_queue.empty():
+            msg = target_queue.get()
             plc_address = msg.topic.split("/")[-1]
-            
-            if plc_address in plc_address_map:
-                tag_name = plc_address_map[plc_address]['name']
+
+            if plc_address in self.plc_address_map:
+                tag_name = self.plc_address_map[plc_address]['name']
                 payload = msg.payload.decode("utf-8")
-                readings[tag_name] = Converter.cast(payload, plc_address_map[plc_address]['type'])
+                readings[tag_name] = Converter.cast(payload, self.plc_address_map[plc_address]['type'])
         
         return readings
 
 
-
+### DADOS MOCKADOS PARA DEMO SOMENTE
 class PLCDataReader(CommunicationAdapter):
 
     def __init__(self): 
@@ -79,7 +111,6 @@ class PLCDataReader(CommunicationAdapter):
         for tag in equipment.tags:
             tag_name = tag['name']
             
-            # Initialize state for new tags with sensible defaults
             if tag_name not in self.simulation_state[eq_name]:
                 if "Temperatura" in tag_name:
                     self.simulation_state[eq_name][tag_name] = 20.0
@@ -89,32 +120,26 @@ class PLCDataReader(CommunicationAdapter):
                     self.simulation_state[eq_name][tag_name] = 0
 
             last_reading = self.simulation_state[eq_name][tag_name]
-            reading = last_reading # Default to last reading if not updated
+            reading = last_reading 
 
             match (tag['plc_address']):
-                # =============================================================
-                # --- Mash Tun MT-01 ---
-                # =============================================================
-                case "100":  # MashTunTemperatureSensor
+                
+                case "100": 
                     noise = random.uniform(-0.2, 0.2) if random.random() > 0.55 else random.uniform(-0.5, 0.5)
                     reading = last_reading + noise
 
                     if reading < 1.95: reading =1.95
                     if reading > 3.25: reading = 3.25
 
-                case "101":  # WaterVolume
+                case "101": 
                      reading = random.choice([1, 2, 3])
                 
-                case "102":  # AgitatorStatus (Discrete state)
+                case "102":  
                     noise = random.randint(1, 3) if random.random() > 0.1 else 0
 
                     reading = last_reading + noise
 
-    
-                # =============================================================
-                # --- Fermentation Tank FV-101 ---
-                # =============================================================
-                case "200": # FermentationTemperature
+                case "200": 
 
                     noise = random.uniform(-0.4, 0.65) if random.random() > 0.4 else random.uniform(-1.25, 1.55)
 
@@ -122,18 +147,16 @@ class PLCDataReader(CommunicationAdapter):
                     if reading < 17: reading = 17
                     if reading > 26: reading = 26
 
-                case "201": # TankPressure
+                case "201": 
                     noise = random.uniform(-0.02, 0.02)
                     reading = last_reading + noise
                     if reading < 0.9: reading = 0.9
                     if reading > 1.5: reading = 1.5
                     
 
-                case "203": # FermentationPhase (Discrete state)
+                case "203": 
                     reading = random.choice([1, 3])
                     
-
-            # Update the state for the next cycle and prepare the readings
             self.simulation_state[eq_name][tag_name] = reading
             readings[tag_name] = round(reading, 3) if isinstance(reading, float) else reading
         

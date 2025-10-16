@@ -1,12 +1,12 @@
-from datetime import datetime
-from asteval import asteval, Interpreter
+from asteval import asteval
 
 class Equipment():
 
-    def __init__(self, name : str, ip : str, config : dict, compiled_rules : dict):
+    def __init__(self, name : str, ip : str, code : str, config : dict, compiled_rules : dict):
 
         self.name = name
         self.ip = ip
+        self.code = code
 
         self.tags = config['tags']
         self.rules = []
@@ -21,11 +21,17 @@ class Equipment():
 
             self.rules.append({
                 'name' : rule['name'],
-                'expression' : compiled_rule
+                'expression' : compiled_rule,
+                'routing_key' : rule['routing_key'] or "",
+                'output' : rule['output'],
+                'state' : False
             })
 
     def update_values(self, new_values):
-        self.symtable = new_values
+        try:
+            self.symtable.update(new_values)
+        except AttributeError:
+            self.symtable = new_values
 
     
     

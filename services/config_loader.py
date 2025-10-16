@@ -34,10 +34,11 @@ class ConfigLoader():
         for eq_name, eq_cfg in config.items():
             
             equipment = Equipment(
-                eq_name,
-                eq_cfg['ip'],
-                config[eq_name],
-                compiled_rules
+                name = eq_name,
+                ip = eq_cfg['ip'],
+                code = eq_cfg['code'],
+                config = config[eq_name],
+                compiled_rules = compiled_rules
             )
 
             equipments.append(equipment)
