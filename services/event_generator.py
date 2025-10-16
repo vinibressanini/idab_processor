@@ -1,17 +1,16 @@
 from datetime import datetime
 from threading import Timer
-import threading
 from asteval import Interpreter
+from services.outbox import store_event
 
 from decorator.metric_decorator import update_event_counter
-from services.event_publisher import EventPublisher
 
 
 
-class EventGenerator():
+class EventGenerator():    
 
-    def __init__(self):
-        self.sender = EventPublisher()
+    def __init__(self, sender):
+        self.sender = sender
 
     @update_event_counter
     def evaluate_rules(self, interpreter : Interpreter, timespan, equipments):
@@ -28,11 +27,14 @@ class EventGenerator():
                 if triggered:
                     event = self._create_event_payload(rule, equipment.metadata)
                     events.append(event)
+                    store_event(event['event_name'], event['metadata'], event['timestamp'])
                     print(event)
             
         timer = Timer(timespan, self.evaluate_rules, kwargs={'interpreter' : interpreter, 'timespan' : timespan, 'equipments' : equipments})
         timer.daemon = True
         timer.start()
+
+        ## SERVICE BUS CALL. BACKGROUND TASK USING A LIGHTWEIGHT THREAD
 
         # thread = threading.Thread(target=self.sender.send_event, kwargs={'events' : events})
         # thread.start()
@@ -43,6 +45,6 @@ class EventGenerator():
         
         return {
             "event_name": rule['name'],
-            "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
+            "timestamp": int(datetime.now().timestamp()),
             "metadata" : metadata,
         }
