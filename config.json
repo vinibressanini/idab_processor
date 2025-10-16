@@ -1,63 +1,154 @@
 {
-    "Enchedora": {
+    "Torra": {
         "ip": "127.0.0.1",
+        "code": "T01",
         "metadata": {
             "plant": "Blumenau",
-            "area": "Packaging Area -> Canning Line 1",
-            "equipment": "Enchedora"
+            "localization": "Packaging Area -> Canning Line 1"
         },
         "tags": [
             {
-                "name": "PressaoCO2",
+                "name": "Voltagem",
                 "type": "float",
-                "plc_address": "100"
+                "plc_address": "voltage"
             },
             {
-                "name": "Status",
+                "name": "PecasBoas",
                 "type": "integer",
-                "plc_address": "101"
+                "plc_address": "good_pieces"
             },
             {
-                "name": "ContagemDeRejeitos",
+                "name": "PecasRejeitadas",
                 "type": "integer",
-                "plc_address": "102"
+                "plc_address": "bad_pieces"
             }
         ],
         "event_rules": [
             {
-                "name": "PressaoCO2Baixa",
-                "expression": "PressaoCO2 < 2.5"
+                "name": "MachineWorking",
+                "expression": "Voltagem > 22.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "MachineStopped",
+                "expression" :"Voltagem < 6.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "PecasBoas",
+                "expression" :"PecasBoas > 0",
+                "routing_key" : "pecas_boas",
+                "output" : "PecasBoas"
+            },
+            {
+                "name" : "PecasRejeitadas",
+                "expression" :"PecasRejeitadas > 0",
+                "routing_key" : "pecas_rejeitadas",
+                "output" : "PecasRejeitadas"
             }
         ]
     },
-    "Tanque de Fermentacao": {
+    "APM": {
         "ip": "127.0.0.1",
+        "code": "APM01",
         "metadata": {
             "plant": "Blumenau",
-            "area": "Cellar Area -> Fermentation Hall 1",
-            "equipment": "Tanque de Fermentacao"
+            "localization": "Packaging Area -> Canning Line 1"
         },
         "tags": [
             {
-                "name": "Temperatura",
+                "name": "Voltagem",
                 "type": "float",
-                "plc_address": "200"
+                "plc_address": "voltage"
             },
             {
-                "name": "Pressao",
-                "type": "float",
-                "plc_address": "201"
-            },
-            {
-                "name": "Status",
+                "name": "PecasBoas",
                 "type": "integer",
-                "plc_address": "203"
+                "plc_address": "good_pieces"
+            },
+            {
+                "name": "PecasRejeitadas",
+                "type": "integer",
+                "plc_address": "bad_pieces"
             }
         ],
         "event_rules": [
             {
-                "name": "TemperaturaForaDosLimites",
-                "expression": "Temperatura > 22.0 or Temperatura < 18.0"
+                "name": "MachineWorking",
+                "expression": "Voltagem > 22.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "MachineStopped",
+                "expression" :"Voltagem < 6.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "PecasBoas",
+                "expression" :"PecasBoas > 0",
+                "routing_key" : "pecas_boas",
+                "output" : "PecasBoas"
+            },
+            {
+                "name" : "PecasRejeitadas",
+                "expression" :"PecasRejeitadas > 0",
+                "routing_key" : "pecas_rejeitadas",
+                "output" : "PecasRejeitadas"
+            }
+        ]
+    },
+    "Embaladora": {
+        "ip": "127.0.0.1",
+        "code": "EMB01",
+        "metadata": {
+            "plant": "Blumenau",
+            "localization": "Packaging Area -> Canning Line 1"
+        },
+        "tags": [
+            {
+                "name": "Voltagem",
+                "type": "float",
+                "plc_address": "voltage"
+            },
+            {
+                "name": "PecasBoas",
+                "type": "integer",
+                "plc_address": "good_pieces"
+            },
+            {
+                "name": "PecasRejeitadas",
+                "type": "integer",
+                "plc_address": "bad_pieces"
+            }
+        ],
+        "event_rules": [
+            {
+                "name": "MachineWorking",
+                "expression": "Voltagem > 22.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "MachineStopped",
+                "expression" :"Voltagem < 6.0",
+                "routing_key" : "machine_status",
+                "output" : null
+            },
+            {
+                "name" : "PecasBoas",
+                "expression" :"PecasBoas > 0",
+                "routing_key" : "pecas_boas",
+                "output" : "PecasBoas"
+            },
+            {
+                "name" : "PecasRejeitadas",
+                "expression" :"PecasRejeitadas > 0",
+                "routing_key" : "pecas_rejeitadas",
+                "output" : "PecasRejeitadas"
             }
         ]
     }
